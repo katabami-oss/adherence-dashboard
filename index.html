@@ -380,9 +380,9 @@
   <div class="section-label">Summary</div>
   <div class="kpi-row">
     <div class="kpi-item">
-      <div class="kpi-label">1年後の受診継続率（全疾患平均 / 介入なし）</div>
-      <div class="kpi-num">52<span class="kpi-unit">%</span></div>
-      <div class="kpi-note">診断時を100とした場合</div>
+      <div class="kpi-label" id="kpi1-label">1年後の受診継続率（全疾患平均 / 介入なし）</div>
+      <div class="kpi-num" id="kpi1-num">52<span class="kpi-unit">%</span></div>
+      <div class="kpi-note" id="kpi1-note">診断時を100とした場合</div>
     </div>
     <div class="kpi-item">
       <div class="kpi-label">最大ドロップアウトが起きる時期</div>
@@ -392,8 +392,8 @@
     </div>
     <div class="kpi-item accent">
       <div class="kpi-label">デジタルヘルス介入による1年後の改善幅</div>
-      <div class="kpi-num">+18<span class="kpi-unit">pt</span></div>
-      <div class="kpi-note">52% → 70%（全疾患平均推計）</div>
+      <div class="kpi-num" id="kpi3-num">+18<span class="kpi-unit">pt</span></div>
+      <div class="kpi-note" id="kpi3-note">52% → 70%（全疾患平均推計）</div>
       <span class="kpi-tag pos">介入効果</span>
     </div>
     <div class="kpi-item">
@@ -757,8 +757,26 @@ function buildInterventionChart(disease) {
   });
 }
 
+const DISEASE_LABEL = {
+  all: '全疾患平均', diabetes: '糖尿病', hypertension: '高血圧',
+  dyslipidemia: '脂質異常症', heart: '心疾患'
+};
+
+function updateKPIs(disease) {
+  const d = DATA.adherence.byDisease[disease];
+  const label = DISEASE_LABEL[disease];
+  const rate1y = d.none[5];
+  const rateD1y = d.digital[5];
+  const gap = rateD1y - rate1y;
+  document.getElementById('kpi1-label').textContent = `1年後の受診継続率（${label} / 介入なし）`;
+  document.getElementById('kpi1-num').innerHTML = `${rate1y}<span class="kpi-unit">%</span>`;
+  document.getElementById('kpi3-num').innerHTML = `+${gap}<span class="kpi-unit">pt</span>`;
+  document.getElementById('kpi3-note').textContent = `${rate1y}% → ${rateD1y}%（${label}推計）`;
+}
+
 function updateCharts() {
   const disease = document.getElementById('diseaseFilter').value;
+  updateKPIs(disease);
   buildAdherenceChart(disease, 'both');
   buildDiseaseBarChart();
   buildInterventionChart(disease);
