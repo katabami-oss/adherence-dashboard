@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>慢性疾患 受診継続率ダッシュボード</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:   #0f172a;
+      --blue:   #2563eb;
+      --red:    #dc2626;
+      --green:  #16a34a;
+      --slate:  #64748b;
+      --border: #e2e8f0;
+      --bg:     #f8fafc;
+      --white:  #ffffff;
+    }
+
+    body {
+      font-family: 'Hiragino Sans', 'Yu Gothic UI', 'Meiryo', sans-serif;
+      background: var(--bg);
+      color: var(--navy);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: var(--navy);
+      color: #fff;
+      padding: 36px 48px 32px;
+      border-bottom: 3px solid var(--blue);
+      position: relative;
+    }
+    header .byline {
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      margin-bottom: 14px;
+    }
+    header h1 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      margin-bottom: 10px;
+    }
+    header h1 span {
+      color: #60a5fa;
+    }
+    header p {
+      font-size: 13px;
+      color: #94a3b8;
+      max-width: 640px;
+      line-height: 1.7;
+    }
+    .header-meta {
+      display: flex;
+      gap: 32px;
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid #1e293b;
+    }
+    .header-meta-item {
+      font-size: 11px;
+      color: #64748b;
+    }
+    .header-meta-item strong {
+      display: block;
+      font-size: 11px;
+      color: #475569;
+      margin-bottom: 3px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    /* ── DATA NOTE ── */
+    .data-note {
+      background: #fefce8;
+      border-bottom: 1px solid #fde68a;
+      padding: 9px 48px;
+      font-size: 11px;
+      color: #92400e;
+    }
+
+    /* ── LAYOUT ── */
+    .container {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 32px 40px 48px;
+    }
+
+    /* ── SECTION LABEL ── */
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--slate);
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ── KPI ROW ── */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 36px;
+    }
+    .kpi-item {
+      background: var(--white);
+      padding: 24px 22px;
+    }
+    .kpi-item.accent { background: var(--navy); }
+    .kpi-label {
+      font-size: 11px;
+      color: var(--slate);
+      margin-bottom: 10px;
+      line-height: 1.4;
+    }
+    .kpi-item.accent .kpi-label { color: #64748b; }
+    .kpi-num {
+      font-size: 38px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1;
+      color: var(--navy);
+    }
+    .kpi-item.accent .kpi-num { color: #fff; }
+    .kpi-unit {
+      font-size: 16px;
+      font-weight: 400;
+      color: var(--slate);
+    }
+    .kpi-item.accent .kpi-unit { color: #94a3b8; }
+    .kpi-note {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 6px;
+    }
+    .kpi-item.accent .kpi-note { color: #64748b; }
+    .kpi-tag {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 3px;
+      margin-top: 8px;
+    }
+    .kpi-tag.pos { background: #dcfce7; color: #15803d; }
+    .kpi-tag.neg { background: #fee2e2; color: #b91c1c; }
+    .kpi-tag.warn { background: #fef3c7; color: #92400e; }
+
+    /* ── FILTER ── */
+    .filter-row {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      padding: 14px 20px;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+    }
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .filter-group label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      color: var(--slate);
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .filter-group select {
+      padding: 5px 10px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      font-size: 12px;
+      color: var(--navy);
+      background: var(--bg);
+      cursor: pointer;
+    }
+    .filter-divider {
+      width: 1px;
+      height: 24px;
+      background: var(--border);
+    }
+
+    /* ── CHART GRID ── */
+    .grid-2-3 {
+      display: grid;
+      grid-template-columns: 3fr 2fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 22px;
+    }
+    .card.featured {
+      border-color: #bfdbfe;
+      border-left: 3px solid var(--blue);
+    }
+    .card-header {
+      margin-bottom: 16px;
+    }
+    .card-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 3px;
+    }
+    .card-desc {
+      font-size: 11px;
+      color: var(--slate);
+    }
+
+    /* ── BARRIER TABLE ── */
+    .barrier-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 28px;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .barrier-table th {
+      background: #f1f5f9;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--slate);
+      padding: 10px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .barrier-table td {
+      padding: 12px 16px;
+      font-size: 12px;
+      color: #374151;
+      border-bottom: 1px solid #f1f5f9;
+      vertical-align: top;
+      line-height: 1.5;
+    }
+    .barrier-table tr:last-child td { border-bottom: none; }
+    .barrier-table tr.digital-row td {
+      background: #f0f9ff;
+      color: #1e40af;
+    }
+    .barrier-table .pct {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--red);
+      white-space: nowrap;
+    }
+    .barrier-table tr.digital-row .pct { color: var(--blue); }
+    .bar-cell { width: 180px; }
+    .mini-bar {
+      height: 6px;
+      background: #e2e8f0;
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .mini-bar-fill {
+      height: 100%;
+      background: var(--red);
+      border-radius: 3px;
+    }
+    .digital-row .mini-bar-fill { background: var(--blue); }
+    .coverage-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 3px;
+      background: #dbeafe;
+      color: #1e40af;
+      margin-top: 4px;
+    }
+
+    /* ── INSIGHT ── */
+    .insight-section {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--navy);
+      border-radius: 10px;
+      padding: 24px 28px;
+      margin-bottom: 36px;
+    }
+    .insight-section h3 {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--slate);
+      margin-bottom: 16px;
+    }
+    .insight-item {
+      display: flex;
+      gap: 14px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .insight-item:last-child { border-bottom: none; }
+    .insight-num {
+      font-size: 22px;
+      font-weight: 700;
+      color: #e2e8f0;
+      line-height: 1;
+      flex-shrink: 0;
+      width: 28px;
+      text-align: right;
+    }
+    .insight-text {
+      font-size: 13px;
+      color: #374151;
+      line-height: 1.7;
+    }
+    .insight-text strong { color: var(--navy); }
+
+    /* ── FOOTER ── */
+    footer {
+      padding: 20px 40px;
+      border-top: 1px solid var(--border);
+    }
+    footer p {
+      font-size: 11px;
+      color: #94a3b8;
+      line-height: 1.7;
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <h1>慢性疾患 <span>受診継続率</span> ダッシュボード</h1>
+  <p>「なぜ患者は受診をやめるのか」——デジタルヘルス介入が継続率に与える構造的影響を可視化する。受診行動変容の設計を支援するダッシュボード。</p>
+  <div class="header-meta">
+    <div class="header-meta-item"><strong>対象疾患</strong>糖尿病 / 高血圧 / 脂質異常症 / 心疾患</div>
+    <div class="header-meta-item"><strong>データ出典</strong>厚生労働省公開統計ベースの推計値</div>
+  </div>
+</header>
+
+<div class="data-note">
+  データは厚生労働省「患者調査」「特定健診・特定保健指導の実施状況」「NDBオープンデータ」等を参考に構築した推計値（合成データ）です。個人情報・施設識別情報は含みません。
+</div>
+
+<div class="container">
+
+  <!-- KPI -->
+  <div class="section-label">Summary</div>
+  <div class="kpi-row">
+    <div class="kpi-item">
+      <div class="kpi-label">1年後の受診継続率（全疾患平均 / 介入なし）</div>
+      <div class="kpi-num">52<span class="kpi-unit">%</span></div>
+      <div class="kpi-note">診断時を100とした場合</div>
+    </div>
+    <div class="kpi-item">
+      <div class="kpi-label">最大ドロップアウトが起きる時期</div>
+      <div class="kpi-num">3<span class="kpi-unit">ヶ月</span></div>
+      <div class="kpi-note">診断後3ヶ月以内に約30%が離脱</div>
+      <span class="kpi-tag neg">最重要介入ポイント</span>
+    </div>
+    <div class="kpi-item accent">
+      <div class="kpi-label">デジタルヘルス介入による1年後の改善幅</div>
+      <div class="kpi-num">+18<span class="kpi-unit">pt</span></div>
+      <div class="kpi-note">52% → 70%（全疾患平均推計）</div>
+      <span class="kpi-tag pos">介入効果</span>
+    </div>
+    <div class="kpi-item">
+      <div class="kpi-label">継続率が最も低い年齢層</div>
+      <div class="kpi-num">40<span class="kpi-unit">代</span></div>
+      <div class="kpi-note">離脱率53%——就労・多忙が主因</div>
+      <span class="kpi-tag warn">要注意層</span>
+    </div>
+  </div>
+
+  <!-- FILTER -->
+  <div class="filter-row">
+    <div class="filter-group">
+      <label>疾患</label>
+      <select id="diseaseFilter" onchange="updateCharts()">
+        <option value="all">全疾患（平均）</option>
+        <option value="diabetes">糖尿病</option>
+        <option value="hypertension">高血圧</option>
+        <option value="dyslipidemia">脂質異常症</option>
+        <option value="heart">心疾患</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- CHART ROW 1 -->
+  <div class="section-label">受診継続率の推移</div>
+  <div class="grid-2-3">
+    <div class="card featured">
+      <div class="card-header">
+        <div class="card-title">診断後〜1年 受診継続率カーブ</div>
+        <div class="card-desc">縦軸：継続率（%）｜ 横軸：診断後の経過時期</div>
+      </div>
+      <canvas id="adherenceChart" height="190"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">疾患別 1年後継続率の比較</div>
+        <div class="card-desc">介入なし群 vs. デジタルヘルス介入あり群</div>
+      </div>
+      <canvas id="diseaseBarChart" height="190"></canvas>
+    </div>
+  </div>
+
+  <!-- CHART ROW 2 -->
+  <div class="grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">年齢層別ドロップアウト率</div>
+        <div class="card-desc">診断後1年以内の離脱率（介入なし群）</div>
+      </div>
+      <canvas id="ageChart" height="210"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">離脱理由の構成</div>
+        <div class="card-desc">患者ヒアリングに基づく推計</div>
+      </div>
+      <canvas id="reasonChart" height="210"></canvas>
+    </div>
+  </div>
+
+  <!-- CHART ROW 3 : 全幅 -->
+  <div class="card" style="margin-bottom:28px;">
+    <div class="card-header">
+      <div class="card-title">デジタルヘルス介入による改善幅の推移</div>
+      <div class="card-desc">各時点での介入効果（pt）｜ 疾患フィルターと連動</div>
+    </div>
+    <canvas id="interventionChart" height="100"></canvas>
+  </div>
+
+  <!-- BARRIER TABLE -->
+  <div class="section-label">受診継続を阻む構造的バリア</div>
+  <table class="barrier-table">
+    <thead>
+      <tr>
+        <th style="width:24px">#</th>
+        <th>バリアの種類</th>
+        <th>内容と背景</th>
+        <th>回答割合</th>
+        <th class="bar-cell">構成比</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td><strong>時間的バリア</strong></td>
+        <td>就労・育児で通院時間が確保できない。特に40〜50代の現役世代に集中。</td>
+        <td class="pct">38%</td>
+        <td class="bar-cell"><div class="mini-bar"><div class="mini-bar-fill" style="width:100%"></div></div></td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td><strong>症状安定による安心感</strong></td>
+        <td>「症状がないから行かなくていい」という誤認識。慢性疾患の潜在リスクが見えない。</td>
+        <td class="pct">29%</td>
+        <td class="bar-cell"><div class="mini-bar"><div class="mini-bar-fill" style="width:76%"></div></div></td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td><strong>経済的バリア</strong></td>
+        <td>定期通院にかかる受診費・交通費の累積負担。低所得層で顕著。</td>
+        <td class="pct">18%</td>
+        <td class="bar-cell"><div class="mini-bar"><div class="mini-bar-fill" style="width:47%"></div></div></td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td><strong>アクセシビリティ</strong></td>
+        <td>医療機関が近くにない・予約が取れない。地方・僻地で深刻。</td>
+        <td class="pct">9%</td>
+        <td class="bar-cell"><div class="mini-bar"><div class="mini-bar-fill" style="width:24%"></div></div></td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td><strong>情報不足・低ヘルスリテラシー</strong></td>
+        <td>継続的受診の必要性が理解されていない。生活習慣改善とのつながりが見えない。</td>
+        <td class="pct">6%</td>
+        <td class="bar-cell"><div class="mini-bar"><div class="mini-bar-fill" style="width:16%"></div></div></td>
+      </tr>
+      <tr class="digital-row">
+        <td>&mdash;</td>
+        <td><strong>デジタルヘルスが介入できる範囲</strong></td>
+        <td>時間・情報・モチベーションに関わる67%のバリアに対して行動変容アプリが直接介入可能。残り33%（経済・地理）は制度設計との組み合わせが必要。<br><span class="coverage-badge">カバー範囲 67%</span></td>
+        <td class="pct">67%</td>
+        <td class="bar-cell"><div class="mini-bar"><div class="mini-bar-fill" style="width:67%"></div></div></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- INSIGHTS -->
+  <div class="insight-section">
+    <div class="insight-item">
+      <div class="insight-num">01</div>
+      <div class="insight-text">「患者が受診をやめる」のは意志の問題ではない。<strong>受診継続を前提にしていない生活設計・社会構造の問題</strong>だ。診断時の「定期受診してください」という一言では何も変わらない。</div>
+    </div>
+    <div class="insight-item">
+      <div class="insight-num">02</div>
+      <div class="insight-text"><strong>最大の離脱ポイントは診断後3ヶ月以内</strong>。ここに集中的に介入するリマインダー設計・動機付けが、最も費用対効果の高い打ち手になる。デジタルヘルスが効く層と時期が一致している。</div>
+    </div>
+    <div class="insight-item">
+      <div class="insight-num">03</div>
+      <div class="insight-text">40代の継続率が最も低い（離脱率53%）のは、健康への関心より仕事・育児が優先される構造に起因する。<strong>「忙しい人でも継続できる仕組み」でなければ、どれほど良い医療でも届かない</strong>。</div>
+    </div>
+    <div class="insight-item">
+      <div class="insight-num">04</div>
+      <div class="insight-text">デジタル介入の効果（＋18pt）は、バリアの「除去」ではなく「<strong>可視化と行動の設計変更</strong>」によるもの。通院の代替ではなく、通院への橋渡しとして機能させることが重要だ。</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <p>
+    データ出典：厚生労働省「患者調査」（2023年）、「特定健診・特定保健指導の実施状況」（2022年度）、「NDBオープンデータ」<br>
+    ※ 本ダッシュボードのデータは公開統計をもとに構築した推計値です。実際の数値と異なる場合があります。
+  </p>
+</footer>
+
+<script>
+const DATA = {
+  adherence: {
+    labels: ['診断時', '1ヶ月後', '3ヶ月後', '6ヶ月後', '9ヶ月後', '1年後'],
+    byDisease: {
+      all:          { none: [100,85,72,63,57,52], digital: [100,93,87,83,80,70] },
+      diabetes:     { none: [100,87,76,67,61,58], digital: [100,94,90,86,83,80] },
+      hypertension: { none: [100,88,74,65,59,55], digital: [100,94,89,85,82,79] },
+      dyslipidemia: { none: [100,82,68,58,51,46], digital: [100,91,84,79,74,70] },
+      heart:        { none: [100,90,80,72,66,62], digital: [100,96,92,89,87,85] }
+    }
+  },
+  diseaseBar: {
+    labels: ['心疾患', '糖尿病', '高血圧', '脂質異常症'],
+    none:    [62, 58, 55, 46],
+    digital: [85, 80, 79, 70]
+  },
+  age: {
+    labels: ['40代', '50代', '60代', '70代以上'],
+    dropout: [53, 41, 32, 28]
+  },
+  reason: {
+    labels: ['多忙・時間なし', '症状安定', '経済的理由', 'アクセス問題', '情報不足', 'その他'],
+    values: [38, 29, 18, 9, 6, 7]
+  }
+};
+
+const C = {
+  navy:        '#0f172a',
+  blue:        '#2563eb',
+  blueLight:   'rgba(37,99,235,0.12)',
+  red:         '#dc2626',
+  redLight:    'rgba(220,38,38,0.1)',
+  slate:       '#64748b',
+  border:      '#e2e8f0',
+};
+
+let charts = {};
+
+function destroy(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+function buildAdherenceChart(disease, mode) {
+  destroy('adherence');
+  const ctx = document.getElementById('adherenceChart').getContext('2d');
+  const d = DATA.adherence.byDisease[disease];
+  const datasets = [];
+  if (mode !== 'digital') datasets.push({
+    label: '介入なし',
+    data: d.none,
+    borderColor: C.red,
+    backgroundColor: C.redLight,
+    borderWidth: 2,
+    tension: 0.35,
+    fill: mode === 'none',
+    pointBackgroundColor: C.red,
+    pointRadius: 4,
+    pointHoverRadius: 6
+  });
+  if (mode !== 'none') datasets.push({
+    label: 'デジタルヘルス介入あり',
+    data: d.digital,
+    borderColor: C.blue,
+    backgroundColor: C.blueLight,
+    borderWidth: 2,
+    tension: 0.35,
+    fill: mode === 'digital',
+    pointBackgroundColor: C.blue,
+    pointRadius: 4,
+    pointHoverRadius: 6
+  });
+  charts['adherence'] = new Chart(ctx, {
+    type: 'line',
+    data: { labels: DATA.adherence.labels, datasets },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'top', labels: { font: { size: 11 }, color: C.navy, usePointStyle: true, pointStyleWidth: 8 } },
+        tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y}%` } }
+      },
+      scales: {
+        y: { min: 40, max: 105,
+          ticks: { callback: v => v + '%', font: { size: 11 }, color: C.slate },
+          grid: { color: C.border } },
+        x: { ticks: { font: { size: 11 }, color: C.slate }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+function buildDiseaseBarChart() {
+  destroy('diseaseBar');
+  const ctx = document.getElementById('diseaseBarChart').getContext('2d');
+  charts['diseaseBar'] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: DATA.diseaseBar.labels,
+      datasets: [
+        { label: '介入なし',    data: DATA.diseaseBar.none,    backgroundColor: C.red,  borderRadius: 4 },
+        { label: '介入あり',    data: DATA.diseaseBar.digital, backgroundColor: C.blue, borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'top', labels: { font: { size: 11 }, color: C.navy, usePointStyle: true } },
+        tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y}%` } }
+      },
+      scales: {
+        y: { min: 0, max: 100,
+          ticks: { callback: v => v + '%', font: { size: 11 }, color: C.slate },
+          grid: { color: C.border } },
+        x: { ticks: { font: { size: 11 }, color: C.slate }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+function buildAgeChart(age) {
+  destroy('age');
+  const ctx = document.getElementById('ageChart').getContext('2d');
+  const ageMap = { '40s': 0, '50s': 1, '60s': 2, '70s': 3 };
+  const colors = DATA.age.dropout.map((v, i) => {
+    if (age !== 'all' && i !== ageMap[age]) return 'rgba(37,99,235,0.18)';
+    return v >= 45 ? C.red : v >= 35 ? '#f97316' : C.blue;
+  });
+  charts['age'] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: DATA.age.labels,
+      datasets: [{ label: 'ドロップアウト率', data: DATA.age.dropout, backgroundColor: colors, borderRadius: 5 }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => ` 離脱率: ${c.parsed.x}%` } }
+      },
+      scales: {
+        x: { min: 0, max: 70,
+          ticks: { callback: v => v + '%', font: { size: 11 }, color: C.slate },
+          grid: { color: C.border } },
+        y: { ticks: { font: { size: 12 }, color: C.navy }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+function buildReasonChart() {
+  destroy('reason');
+  const ctx = document.getElementById('reasonChart').getContext('2d');
+  charts['reason'] = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: DATA.reason.labels,
+      datasets: [{
+        data: DATA.reason.values,
+        backgroundColor: ['#0f172a','#1e40af','#2563eb','#60a5fa','#93c5fd','#cbd5e1'],
+        borderWidth: 2,
+        borderColor: '#fff'
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 10 }, color: C.navy, padding: 8 } },
+        tooltip: { callbacks: { label: c => ` ${c.label}: ${c.parsed}%` } }
+      }
+    }
+  });
+}
+
+function buildInterventionChart(disease) {
+  destroy('intervention');
+  const ctx = document.getElementById('interventionChart').getContext('2d');
+  const d = DATA.adherence.byDisease[disease];
+  const gap = d.none.map((v, i) => d.digital[i] - v);
+  const opacity = gap.map(v => 0.4 + (v / 30) * 0.6);
+  charts['intervention'] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: DATA.adherence.labels,
+      datasets: [{
+        label: '改善幅（pt）',
+        data: gap,
+        backgroundColor: opacity.map(o => `rgba(37,99,235,${o.toFixed(2)})`),
+        borderRadius: 5
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => ` +${c.parsed.y}pt` } }
+      },
+      scales: {
+        y: { min: 0, max: 35,
+          ticks: { callback: v => '+' + v + 'pt', font: { size: 11 }, color: C.slate },
+          grid: { color: C.border } },
+        x: { ticks: { font: { size: 10 }, color: C.slate }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+function updateCharts() {
+  const disease = document.getElementById('diseaseFilter').value;
+  buildAdherenceChart(disease, 'both');
+  buildDiseaseBarChart();
+  buildInterventionChart(disease);
+}
+
+buildAdherenceChart('all', 'both');
+buildDiseaseBarChart();
+buildAgeChart('all');
+buildReasonChart();
+buildInterventionChart('all');
+</script>
+</body>
+</html>
